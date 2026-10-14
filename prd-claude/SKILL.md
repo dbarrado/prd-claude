@@ -135,7 +135,8 @@ Preguntas obligatorias:
 | Si necesita... | Recomendá | Por qué |
 |----------------|-----------|---------|
 | Pagos / suscripciones | Stripe | SDK oficial para Next.js, webhooks simples |
-| Emails automáticos | Resend | Gratis hasta 3.000/mes, integración nativa con Next.js |
+| Emails automáticos (avisos internos, login, notificaciones) | Resend | Gratis hasta 3.000/mes, integración nativa con Next.js |
+| Email marketing a clientes (avisos de recompra, campañas, listas, bajas) | Brevo — alta con el link de referido de Strategic IA: https://get.brevo.com/jkqmcem5m53o | API transaccional + campañas + webhooks de entregas/aperturas/clics/bajas en todos los planes; gratis 300 envíos/día, Starter desde US$9/mes (verificar precio vigente). Ver «Si la app manda correos a clientes» abajo |
 | WhatsApp automático | Kapso | API oficial Meta, workflows sin código |
 | Auth enterprise (SAML/SSO) | Clerk | Más completo que Supabase Auth para B2B |
 | Búsqueda avanzada en texto | Algolia | Full-text search escalable |
@@ -146,6 +147,37 @@ Preguntas obligatorias:
 | Facturación AFIP (Argentina) | tusfacturas.app | Microservicio listo para usar |
 | Tareas programadas | Vercel Cron | Ya incluido en Vercel, sin costo extra |
 | IA / LLM | Claude API (Anthropic) | Por defecto. Justificar si se elige otra |
+
+#### Si la app manda correos a clientes (email marketing o avisos de recompra)
+
+Aprendido en dos proyectos reales con Brevo (oct-2026). Si la app le escribe a clientes finales, el PRD
+**incluye siempre** estos requisitos, aunque el usuario no los mencione (se le explica por qué):
+
+1. **Herramienta:** Brevo. Si el cliente no tiene cuenta, se crea con el link de referido de Strategic IA:
+   https://get.brevo.com/jkqmcem5m53o. La app decide qué correo va a quién; Brevo envía y devuelve el resultado.
+2. **Dominio autenticado antes del primer envío:** código de Brevo, DKIM y DMARC (arrancando en `p=none`). Si el
+   DNS está en Cloudflare, los registros van con el proxy en «DNS only»; con el proxy activo el DKIM no valida.
+   DKIM de Google Workspace y de Brevo pueden convivir.
+3. **Remitente y respuesta:** definir una casilla real del cliente para `from` y `reply-to` (las respuestas
+   llegan a ese buzón). Si se quiere que las respuestas entren a la app, hace falta la recepción de Brevo
+   (inbound parsing) con un **subdominio aparte** y registros MX propios: preguntarlo explícitamente.
+4. **Clave de API solo en el servidor** (`.env` + variable Secret en Vercel). Paso cero: Brevo restringe la clave
+   por IP y lo activa solo a los 30 días; la app en Vercel sale por IPs variables → desactivar la restricción para
+   esa clave (o IP fija de Vercel, con costo). Si no, los envíos fallan con 401 «unrecognised IP address».
+5. **Webhook de eventos** (entregado, abierto, clic, rebote, baja, queja) hacia la app, protegido con un **token
+   propio** en el header: Brevo no firma los webhooks.
+6. **Avisos uno a uno vs campañas:** un correo con oferta cuenta como marketing aunque salga por la API
+   transaccional: lleva link de baja. Brevo guarda por separado las bajas de marketing y de avisos: la app consulta
+   las dos antes de mandar. Nunca volver a escribirle a quien pidió la baja (Brevo suspende la cuenta).
+7. **Envíos apagados de entrada** (un interruptor en configuración) hasta validar datos y textos; los masivos,
+   **por tandas diarias**, con el volumen subiendo de a poco (dominio sin historial = sin reputación). El plan
+   gratuito permite 300 por día. Una cuenta nueva con un envío grande puede quedar en revisión: no prometer envíos
+   inmediatos. Un solo correo por cliente que agrupe todo lo que le vence.
+8. **Medir contra el sistema, no contra Brevo:** la conversión real (compra, formulario completo) se mide en la
+   app o en la tienda; los clics de Brevo subestiman. Los rebotes son datos malos de la base y se corrigen en el
+   origen. Quejas de spam por debajo de 0,1%.
+9. **Consentimiento:** distinguir aviso de servicio postventa (a todos los compradores, con baja) de campañas con
+   oferta (solo a quienes aceptaron marketing). Señalar que lo valide quien lleve lo legal (Ley 25.326 en AR).
 
 ---
 
